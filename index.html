@@ -99,9 +99,17 @@
             gap: 25px;
             align-items: start; /* Align tops of cards */
         }
+        
+        /* --- NEW: Left Column Container --- */
+        #left-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px; /* Space between fabric cards */
+        }
 
-        /* --- FABRIC CARD (In Left Column) --- */
-        #fabric-card {
+        /* --- FABRIC CARD (CLASS, not ID) --- */
+        /* This style applies to *each* card */
+        .fabric-card {
             background: #fff;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
@@ -116,13 +124,13 @@
             justify-content: center;
             align-items: center;
         }
-        #fabric-card-image {
+        .fabric-card-image {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain; /* Contain image within its area */
             display: block;
         }
-        #fabric-card-button {
+        .fabric-card-button {
             display: none; /* Will be shown by JS */
             position: absolute;
             bottom: 15px;
@@ -143,32 +151,32 @@
             align-items: center;
             justify-content: center;
         }
-        #fabric-card-button svg {
+        .fabric-card-button svg {
             width: 24px;
             height: 24px;
         }
-        #fabric-card-button:hover {
+        .fabric-card-button:hover {
             background-color: #003399;
             transform: scale(1.1);
         }
         .fabric-card-details {
             padding: 20px;
         }
-        #fabric-card-ref {
-            font-size: 1.25em;
-            font-weight: 700;
-            color: var(--text-primary);
-            margin: 0 0 5px 0;
-            min-height: 1.25em; /* Prevent layout shift */
-        }
-        #fabric-card-style {
-            font-size: 0.95em;
+        .fabric-card-ref {
+            /* This is hidden, but can be used for debugging */
+            display: none; 
+            font-size: 0.8em;
             color: var(--text-secondary);
+        }
+        .fabric-card-style {
+            font-size: 1.1em; /* Made style larger as it's the main text */
+            font-weight: 600;
+            color: var(--text-primary);
             margin: 0;
             line-height: 1.4;
             min-height: 1.4em; /* Prevent layout shift */
         }
-        #fabric-card-error {
+        .fabric-card-error {
             display: none;
             color: var(--error-red);
             font-weight: 500;
@@ -177,8 +185,9 @@
         /* --- Right Column --- */
         #right-column {
             display: block;
-            position: relative;
-            min-height: 400px; /* Match fabric card height */
+            position: sticky; /* Stick the right column while scrolling left */
+            top: 20px;
+            min-height: 400px; 
         }
 
         /* --- CATEGORY SELECTOR (In Right Column) --- */
@@ -223,7 +232,6 @@
         /* --- MOCKUP VIEWER (In Right Column) --- */
         #mockup-viewer {
             display: none; /* Hidden until category selected */
-            /* --- NEW LAYOUT --- */
             display: flex;
             flex-direction: column; /* Stack buttons on top of viewer */
             gap: 25px;
@@ -243,7 +251,6 @@
             padding-bottom: 10px;
         }
         
-        /* --- NEW: Horizontal Button List --- */
         #mockup-buttons {
             display: flex;
             flex-direction: row;
@@ -252,10 +259,8 @@
         }
 
         #mockup-buttons button {
-            /* REMOVED display: block; */
-            /* REMOVED width: 100%; */
-            padding: 12px 18px; /* Adjusted padding for horizontal */
-            margin-bottom: 0; /* Was 8px */
+            padding: 12px 18px; 
+            margin-bottom: 0; 
             font-size: 0.95em;
             font-weight: 500;
             text-align: left;
@@ -265,8 +270,7 @@
             cursor: pointer;
             transition: all 0.2s ease;
         }
-        /* --- END NEW STYLES --- */
-
+        
         #mockup-buttons button:hover {
             background-color: var(--light-gray-bg);
             border-color: #ccc;
@@ -339,14 +343,8 @@
             }
             #right-column {
                 min-height: auto; /* Reset min-height */
+                position: static; /* Un-stick on mobile */
             }
-        }
-
-        @media (max-width: 768px) {
-            /* This rule is no longer needed as mockup-viewer is not a grid */
-            /* #mockup-viewer {
-                grid-template-columns: 1fr; 
-            } */
         }
     </style>
 </head>
@@ -361,34 +359,22 @@
         <!-- This is the centered search box -->
         <div id="search-container">
             <form id="search-form">
-                <input type="text" id="fabric-ref" placeholder="Enter Fabric Ref Code (e.g: RND KNT-1001)...">
+                <input type="text" id="fabric-ref" placeholder="Enter Fabrication (e.g: Lacoste)...">
                 <button type="submit">Search</button>
             </form>
         </div>
 
         <!-- This wrapper holds the side-by-side results -->
-        <!-- NEW: Added INLINE STYLE to force-hide this on load -->
         <div id="results-wrapper" style="display: none;">
 
-            <!-- Column 1: Fabric Card -->
-            <div id="fabric-card">
-                <div class="fabric-image-container">
-                    <img id="fabric-card-image" src="httpss://placehold.co/400x400/eeeeee/cccccc?text=Search+for+a+fabric" alt="Fabric Swatch">
-                    <!-- NEW: Button now uses an inline SVG -->
-                    <button id="fabric-card-button" title="View Garments">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-t-shirt">
-                            <path d="M20.38 3.46L16 2a4 4 0 0 0-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47A1 1 0 0 0 4 10h16a1 1 0 0 0 .96-1.84l.58-3.47a2 2 0 0 0-1.34-2.23z"></path>
-                            <path d="M4 10v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10"></path>
-                            <path d="M12 10v12"></path>
-                        </svg>
-                    </button>
+            <!-- Column 1: Fabric Card List -->
+            <!-- NEW: This is now a container for the cards -->
+            <div id="left-column">
+                <h3 id="fabric-list-title" style="display: none;">Search Results</h3>
+                <div id="fabric-card-list">
+                    <!-- Fabric cards will be dynamically added here -->
                 </div>
-                <div class="fabric-card-details">
-                    <!-- NEW: Removed placeholder text -->
-                    <h2 id="fabric-card-ref"></h2>
-                    <p id="fabric-card-style"></p>
-                    <p id="fabric-card-error"></p>
-                </div>
+                <p id="fabric-card-error"></p>
             </div>
 
             <!-- Column 2: This column holds either the category selector or the mockup viewer -->
@@ -396,8 +382,8 @@
                 
                 <!-- Category Selector (Appears first) -->
                 <div id="category-selector">
-                    <h3>Select a Category</h3>
-                    <div class="category-buttons-container">
+                    <h3>Select a Fabric Card to see options</h3>
+                    <div class="category-buttons-container" style="display: none;">
                         <button class="category-button" data-category="men">Men</button>
                         <button class="category-button" data-category="women">Women</button>
                         <button class="category-button" data-category="kids">Kids</button>
