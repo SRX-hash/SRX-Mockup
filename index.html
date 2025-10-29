@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Masco Mockup Library</title>
+    
+    <!-- Load modern "Inter" font --><link rel="preconnect" href="httpss://fonts.googleapis.com">
+    <link rel="preconnect" href="httpss://fonts.gstatic.com" crossorigin>
+    <link href="httpss://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --masco-blue: #002060;
+            --light-gray-bg: #f4f7f6;
+            --border-color: #e0e0e0;
+            --text-primary: #333;
+            --text-secondary: #555;
+            --error-red: #D9534F;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light-gray-bg);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+        }
+
+        /* --- HEADER --- */
+        .header {
+            text-align: center;
+            margin: 20px auto 30px auto;
+        }
+        .header img {
+            width: 100px;
+            height: auto;
+        }
+        .header h1 {
+            color: var(--masco-blue);
+            font-weight: 700;
+            margin: 10px 0 0 0;
+        }
+
+        /* --- SEARCH --- */
+        #search-container {
+            max-width: 600px;
+            margin: 0 auto 30px auto;
+            background: #fff;
+            padding: 25px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        #search-form {
+            display: flex;
+            gap: 10px;
+        }
+        #fabric-ref {
+            flex-grow: 1;
+            padding: 12px 15px;
+            font-size: 1em;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        #fabric-ref:focus {
+            outline: none;
+            border-color: var(--masco-blue);
+            box-shadow: 0 0 0 3px rgba(0, 32, 96, 0.1);
+        }
+        #search-form button {
+            padding: 12px 20px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            background-color: var(--masco-blue);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        #search-form button:hover {
+            background-color: #003399;
+        }
+
+        /* --- MAIN CONTENT AREA --- */
+        .main-content-area {
+            max-width: 1400px; /* Overall max-width for centering */
+            margin: 0 auto;
+            padding: 0 10px;
+        }
+
+        /* --- Results Wrapper (Side-by-Side) --- */
+        #results-wrapper {
+            max-width: 1400px;
+            margin: 0 auto 30px auto;
+            display: grid;
+            grid-template-columns: 400px 1fr; /* 400px fixed left, remaining space right */
+            gap: 25px;
+            align-items: start; /* Align tops of cards */
+        }
+
+        /* --- FABRIC CARD (In Left Column) --- */
+        #fabric-card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            overflow: hidden;
+            position: relative;
+        }
+        .fabric-image-container {
+            position: relative;
+            background-color: #f9f9f9;
+            height: 400px; /* Fixed height for image container */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #fabric-card-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain; /* Contain image within its area */
+            display: block;
+        }
+        #fabric-card-button {
+            display: none; /* Will be shown by JS */
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--masco-blue);
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+            padding: 0;
+            z-index: 10;
+            /* For the SVG icon */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #fabric-card-button svg {
+            width: 24px;
+            height: 24px;
+        }
+        #fabric-card-button:hover {
+            background-color: #003399;
+            transform: scale(1.1);
+        }
+        .fabric-card-details {
+            padding: 20px;
+        }
+        #fabric-card-ref {
+            font-size: 1.25em;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0 0 5px 0;
+            min-height: 1.25em; /* Prevent layout shift */
+        }
+        #fabric-card-style {
+            font-size: 0.95em;
+            color: var(--text-secondary);
+            margin: 0;
+            line-height: 1.4;
+            min-height: 1.4em; /* Prevent layout shift */
+        }
+        #fabric-card-error {
+            display: none;
+            color: var(--error-red);
+            font-weight: 500;
+        }
+
+        /* --- Right Column --- */
+        #right-column {
+            display: block;
+            position: relative;
+            min-height: 400px; /* Match fabric card height */
+        }
+
+        /* --- CATEGORY SELECTOR (In Right Column) --- */
+        #category-selector {
+            display: none; /* Hidden initially */
+            background: #fff;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        #category-selector h3 {
+            margin: 0 0 15px 0;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .category-buttons-container {
+            display: flex;
+            flex-wrap: wrap; /* Allow buttons to wrap */
+            justify-content: center;
+            gap: 15px;
+        }
+        .category-button {
+            padding: 10px 25px;
+            font-size: 1em;
+            font-weight: 600;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: #fff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .category-button:hover {
+            background-color: var(--light-gray-bg);
+        }
+        .category-button.active {
+            background-color: var(--masco-blue);
+            color: white;
+            border-color: var(--masco-blue);
+        }
+
+        /* --- MOCKUP VIEWER (In Right Column) --- */
+        #mockup-viewer {
+            display: none; /* Hidden until category selected */
+            /* --- NEW LAYOUT --- */
+            display: flex;
+            flex-direction: column; /* Stack buttons on top of viewer */
+            gap: 25px;
+        }
+
+        .sidebar-card, .viewer-card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 25px;
+        }
+        
+        .sidebar-card h3 {
+            margin-top: 0;
+            color: var(--masco-blue);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        
+        /* --- NEW: Horizontal Button List --- */
+        #mockup-buttons {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        #mockup-buttons button {
+            /* REMOVED display: block; */
+            /* REMOVED width: 100%; */
+            padding: 12px 18px; /* Adjusted padding for horizontal */
+            margin-bottom: 0; /* Was 8px */
+            font-size: 0.95em;
+            font-weight: 500;
+            text-align: left;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: #fff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        /* --- END NEW STYLES --- */
+
+        #mockup-buttons button:hover {
+            background-color: var(--light-gray-bg);
+            border-color: #ccc;
+        }
+        #mockup-buttons button.active {
+            background-color: rgba(0, 32, 96, 0.05);
+            border-color: var(--masco-blue);
+            color: var(--masco-blue);
+            font-weight: 600;
+        }
+
+        #mockup-error-message, #mockup-loading {
+            display: none; /* Hide loading message by default */
+            color: var(--error-red);
+            font-weight: 500;
+        }
+
+        #viewer-container {
+            display: none; /* Hidden until a garment is clicked */
+        }
+        
+        #viewer-container h2 {
+            margin-top: 0;
+            color: var(--text-primary);
+        }
+
+        #viewer-image {
+            width: 100%;
+            height: 400px; /* Matches fabric card image */
+            max-width: 100%;
+            object-fit: contain; /* Contain image within its area */
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        
+        .download-links {
+            margin-top: 20px;
+            display: flex; /* Use flex to align buttons */
+            gap: 10px; /* Space between buttons */
+        }
+        .download-links a {
+            display: inline-block;
+            text-decoration: none;
+            font-weight: 600;
+            padding: 10px 18px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        #download-pdf {
+            background-color: var(--masco-blue);
+            color: white;
+        }
+        #download-pdf:hover {
+            background-color: #003399;
+        }
+        #download-image {
+            background-color: #fff;
+            color: var(--masco-blue);
+            border: 1px solid var(--masco-blue);
+        }
+        #download-image:hover {
+             background-color: rgba(0, 32, 96, 0.05);
+        }
+
+        /* --- Responsive Adjustments --- */
+        @media (max-width: 900px) { /* Widen breakpoint for side-by-side */
+            #results-wrapper {
+                grid-template-columns: 1fr; /* Stack on smaller screens */
+            }
+            #right-column {
+                min-height: auto; /* Reset min-height */
+            }
+        }
+
+        @media (max-width: 768px) {
+            /* This rule is no longer needed as mockup-viewer is not a grid */
+            /* #mockup-viewer {
+                grid-template-columns: 1fr; 
+            } */
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <img src="Masco-Logo.png" alt="Masco Group Logo">
+        <h1>MASCO Central R&D Mockup Library</h1>
+    </header>
+
+    <main class="main-content-area">
+        <!-- This is the centered search box -->
+        <div id="search-container">
+            <form id="search-form">
+                <input type="text" id="fabric-ref" placeholder="Enter Fabric Ref Code (e.g: RND KNT-1001)...">
+                <button type="submit">Search</button>
+            </form>
+        </div>
+
+        <!-- This wrapper holds the side-by-side results -->
+        <!-- NEW: Added INLINE STYLE to force-hide this on load -->
+        <div id="results-wrapper" style="display: none;">
+
+            <!-- Column 1: Fabric Card -->
+            <div id="fabric-card">
+                <div class="fabric-image-container">
+                    <img id="fabric-card-image" src="httpss://placehold.co/400x400/eeeeee/cccccc?text=Search+for+a+fabric" alt="Fabric Swatch">
+                    <!-- NEW: Button now uses an inline SVG -->
+                    <button id="fabric-card-button" title="View Garments">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-t-shirt">
+                            <path d="M20.38 3.46L16 2a4 4 0 0 0-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47A1 1 0 0 0 4 10h16a1 1 0 0 0 .96-1.84l.58-3.47a2 2 0 0 0-1.34-2.23z"></path>
+                            <path d="M4 10v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10"></path>
+                            <path d="M12 10v12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="fabric-card-details">
+                    <!-- NEW: Removed placeholder text -->
+                    <h2 id="fabric-card-ref"></h2>
+                    <p id="fabric-card-style"></p>
+                    <p id="fabric-card-error"></p>
+                </div>
+            </div>
+
+            <!-- Column 2: This column holds either the category selector or the mockup viewer -->
+            <div id="right-column">
+                
+                <!-- Category Selector (Appears first) -->
+                <div id="category-selector">
+                    <h3>Select a Category</h3>
+                    <div class="category-buttons-container">
+                        <button class="category-button" data-category="men">Men</button>
+                        <button class="category-button" data-category="women">Women</button>
+                        <button class="category-button" data-category="kids">Kids</button>
+                    </div>
+                </div>
+
+                <!-- Mockup Viewer (Appears after category selection) -->
+                <div id="mockup-viewer">
+                    
+                    <!-- Sidebar -->
+                    <div class="sidebar-card">
+                        <h3 id="mockup-list-title">Available Mockups</h3>
+                        <div id="mockup-loading">Loading...</div>
+                        <div id="mockup-buttons">
+                            <!-- Garment buttons will be added here by JavaScript -->
+                        </div>
+                        <p id="mockup-error-message"></p>
+                    </div>
+
+                    <!-- Main Image Area -->
+                    <div class="viewer-card" id="viewer-container">
+                        <h2 id="viewer-title"></h2>
+                        <img id="viewer-image" alt="Selected Mockup">
+                        
+                        <div class="download-links">
+                            <a id="download-pdf" href="#" download>Download Techpack PDF</a>
+                            <a id="download-image" href="#" download>Download Image</a>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- End Right Column -->
+
+        </div> <!-- End Results Wrapper -->
+
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
