@@ -10,6 +10,7 @@ try:
     with open('config.json', 'r') as f:
         config = json.load(f)
     PATHS = config['paths']
+    DB_FILE = PATHS.get('fabric_database_file', 'fabric_database.xlsx')
 except FileNotFoundError:
     print("FATAL ERROR: config.json not found. Server cannot start.")
     exit(1)
@@ -23,19 +24,16 @@ MOCKUP_DIR = os.path.join(PROJECT_ROOT, PATHS.get('mockup_output_dir', 'generate
 TECHPACK_DIR = os.path.join(PROJECT_ROOT, PATHS.get('pdf_output_dir', 'generated_techpacks'))
 EXCEL_DIR = os.path.join(PROJECT_ROOT, PATHS.get('excel_dir', 'excel_files'))
 FABRIC_SWATCH_DIR = os.path.join(PROJECT_ROOT, PATHS.get('fabric_swatch_dir', 'fabric_swatches'))
+DATABASE_PATH = os.path.join(EXCEL_DIR, DB_FILE)
 
 # --- Initialize Flask App ---
 app = Flask(__name__)
-CORS(app) # Standard CORS for safety
+CORS(app)
 
 print(f"--- Masco Mockup API Server ---")
+print(f"Watching Database: {DATABASE_PATH}")
 print(f"Watching Mockups in: {MOCKUP_DIR}")
-print(f"Watching Techpacks in: {TECHPACK_DIR}")
-print(f"Watching Excels in: {EXCEL_DIR}")
 print(f"Watching Swatches in: {FABRIC_SWATCH_DIR}")
-print("-----------------------------------")
-print(f"SERVER RUNNING! Open this link in your browser:")
-print(f"http://127.0.0.1:5000")
 print("-----------------------------------")
 
 
@@ -48,102 +46,49 @@ def find_file(directory, base_filename):
             return f"{base_filename}{ext}"
     return None
 
-def find_fabric_details_from_report(excel_path, ref_code):
+def get_mockups_for_ref(ref_code):
     """
-    Smarter function to read complex Excel reports.
-    It scans for 'Job No' and 'Style' labels.
+    Finds all mockups and techpacks for a given ref_code.
+    This is the "one-fetch" logic.
     """
-    try:
-        df = pd.read_excel(excel_path, header=None)
-        df = df.fillna("") 
-        fabrication = f"Job No '{ref_code}' not found in Excel."
-        excel_found = False
-
-        for row_index in range(df.shape[0]):
-            for col_index in range(df.shape[1]):
-                cell_value = str(df.iloc[row_index, col_index]).strip()
-                
-                if cell_value == "Job No":
-                    if col_index + 1 < df.shape[1]:
-                        job_no_from_file = str(df.iloc[row_index, col_index + 1]).strip()
-                        
-                        if job_no_from_file == ref_code:
-                            print(f"Found matching Job No at ({row_index}, {col_index+1})")
-                            excel_found = True
-                            
-                            if row_index + 1 < df.shape[0]:
-                                style_label = str(df.iloc[row_index + 1, col_index]).strip()
-                                if style_label == "Style":
-                                    style_value = str(df.iloc[row_index + 1, col_index + 1]).strip()
-                                    fabrication = style_value
-                                    print(f"Found Style: {fabrication}")
-                                    return fabrication, True
-                            
-                            fabrication = "Job No found, but 'Style' label is in an unexpected place."
-                            return fabrication, True
-
-        return fabrication, excel_found
-
-    except Exception as e:
-        print(f"CRITICAL ERROR reading Excel {excel_path}: {e}")
-        return "Error reading Excel file.", False
-
-def find_all_mockups_by_ref(ref_code):
-    """
-    Finds all mockups for a given ref code and groups them by category.
-    """
-    all_mockups = {
+    mockups = {
         "men": [],
         "women": [],
         "kids": []
     }
     
-    # General search pattern for all mockups of this ref
-    mockup_search_pattern = os.path.join(MOCKUP_DIR, f"SRX Mockup_*_{ref_code}.png")
+    categories = mockups.keys()
     
-    print(f"Scanning for all mockups matching: {mockup_search_pattern}")
-
-    for mockup_path in glob.glob(mockup_search_pattern):
-        mockup_filename = os.path.basename(mockup_path)
+    for category in categories:
+        mockup_search_pattern = os.path.join(MOCKUP_DIR, f"SRX Mockup_{category}*_{ref_code}.png")
         
-        prefix = "SRX Mockup_"
-        suffix = f"_{ref_code}.png"
-        
-        if not (mockup_filename.startswith(prefix) and mockup_filename.endswith(suffix)):
-            continue
+        for mockup_path in glob.glob(mockup_search_pattern):
+            mockup_filename = os.path.basename(mockup_path)
+            
+            prefix = "SRX Mockup_"
+            suffix = f"_{ref_code}.png"
+            
+            if mockup_filename.startswith(prefix) and mockup_filename.endswith(suffix):
+                mockup_name = mockup_filename[len(prefix):-len(suffix)]
+            else:
+                continue
 
-        # Extract the full garment name (e.g., "men_polo", "women_tshirt")
-        mockup_name = mockup_filename[len(prefix):-len(suffix)]
-        
-        # Determine category
-        category = None
-        if mockup_name.startswith("men"):
-            category = "men"
-        elif mockup_name.startswith("women"):
-            category = "women"
-        elif mockup_name.startswith("kids"):
-            category = "kids"
-        else:
-            continue # Skip if it doesn't match a category
+            techpack_filename = f"SRX Techpack_{mockup_name}_{ref_code}.pdf"
+            techpack_path = os.path.join(TECHPACK_DIR, techpack_filename)
+            
+            techpack_url_path = None
+            if os.path.exists(techpack_path):
+                techpack_url_path = f"/static/techpacks/{techpack_filename}"
 
-        # Check for techpack
-        techpack_filename = f"SRX Techpack_{mockup_name}_{ref_code}.pdf"
-        techpack_path = os.path.join(TECHPACK_DIR, techpack_filename)
-        techpack_url_path = f"/static/techpacks/{techpack_filename}" if os.path.exists(techpack_path) else None
-
-        # Add to the correct category list
-        all_mockups[category].append({
-            "garmentName": mockup_name.replace('_', ' ').title(), 
-            "mockupUrl": f"/static/mockups/{mockup_filename}",
-            "techpackUrl": techpack_url_path
-        })
-
-    print(f"Found {len(all_mockups['men'])} men, {len(all_mockups['women'])} women, {len(all_mockups['kids'])} kids mockups.")
-    return all_mockups
-
+            mockups[category].append({
+                "garmentName": mockup_name.replace('_', ' ').title(), 
+                "mockupUrl": f"/static/mockups/{mockup_filename}",
+                "techpackUrl": techpack_url_path
+            })
+            
+    return mockups
 
 # --- *** NEW: FRONTEND ROUTES *** ---
-
 @app.route('/')
 def serve_index():
     """Serves the index.html file."""
@@ -159,53 +104,90 @@ def serve_logo():
     """Serves the logo file."""
     return send_from_directory(PROJECT_ROOT, 'Masco-Logo.png')
 
-
 # --- *** NEW: SINGLE API ROUTE *** ---
-@app.route('/api/get-all-info')
-def get_all_info():
+@app.route('/api/find-fabrics')
+def find_fabrics():
     """
-    API: Gets EVERYTHING in one go.
-    Reads Excel, finds swatch, and finds all mockups.
+    NEW API: Searches the master database by Fabrication OR Ref.
     """
-    ref_code = request.args.get('ref')
-    if not ref_code:
-        return jsonify({"error": "No 'ref' parameter provided"}), 400
+    search_term = request.args.get('search', '').lower()
+    if not search_term:
+        return jsonify({"error": "No 'search' parameter provided"}), 400
 
-    print(f"\n--- New Request for {ref_code} ---")
+    print(f"Searching database for: '{search_term}'")
+
+    try:
+        df = pd.read_excel(DATABASE_PATH)
+    except FileNotFoundError:
+        print(f"FATAL ERROR: Database file not found at {DATABASE_PATH}")
+        return jsonify({"error": f"Database file not found: {DB_FILE}"}), 500
+    except Exception as e:
+        print(f"CRITICAL ERROR reading Excel {DATABASE_PATH}: {e}")
+        return jsonify({"error": "Error reading Excel database."}), 500
+
+    # Ensure columns exist and handle case sensitivity
+    df.columns = [str(c).lower() for c in df.columns]
     
-    # 1. Get Excel Details
-    fabrication = "Fabrication details not found."
-    excel_found = False
-    excel_path = os.path.join(EXCEL_DIR, f"{ref_code} price.xlsx")
+    # --- FIX for 'fabric ref' ---
+    required_cols_set = {'fabric ref', 'style', 'fabrication'}
     
-    if os.path.exists(excel_path):
-        print(f"Reading Excel file: {excel_path}")
-        fabrication, excel_found = find_fabric_details_from_report(excel_path, ref_code)
+    if not required_cols_set.issubset(df.columns):
+        print(f"Error: Database columns are wrong. Found: {df.columns}")
+        return jsonify({"error": f"Database must have columns: Fabric ref, Style, Fabrication"}), 500
+        
+    df.rename(columns={'fabric ref': 'ref'}, inplace=True)
+    # --- END OF FIX ---
+
+    # --- NEW DUAL-SEARCH LOGIC ---
+    df_str = df.astype(str)
+    search_term_str = str(search_term) # ensure search term is string
+    
+    # 1. Try to find a direct match in the 'ref' column (case-insensitive)
+    matches = df_str[df_str['ref'].str.lower() == search_term_str]
+    
+    # 2. If no direct ref match, search the 'fabrication' column (contains)
+    if matches.empty:
+        print(f"No direct ref match. Searching 'fabrication' column...")
+        matches = df_str[df_str['fabrication'].str.lower().str.contains(search_term_str, na=False)]
     else:
-        print(f"Excel file not found: {excel_path}")
-        fabrication = "Price file not found."
+        print(f"Found a direct match in 'ref' column.")
+    # --- END NEW LOGIC ---
 
-    # 2. Get Swatch Image
-    swatch_filename = find_file(FABRIC_SWATCH_DIR, ref_code)
-    swatch_url = None
-    if swatch_filename:
-        swatch_url = f"/static/swatches/{swatch_filename}"
+    results = []
+    
+    if matches.empty:
+        print("No matches found.")
     else:
-        print(f"Swatch image not found for {ref_code} in {FABRIC_SWATCH_DIR}")
-        swatch_url = f"https://placehold.co/400x400/eeeeee/cccccc?text={ref_code.replace('-', '%0A')}&font=inter"
+        print(f"Found {len(matches)} matches.")
+        # Iterate over unique 'ref' codes from the matches
+        unique_refs = matches['ref'].unique()
+        
+        for ref_code in unique_refs:
+            # Get the first matching row for this ref to pull style info
+            row = matches[matches['ref'] == ref_code].iloc[0]
+            style = row['style']
+            
+            # Find the swatch image
+            swatch_filename = find_file(FABRIC_SWATCH_DIR, ref_code)
+            swatch_url = None
+            if swatch_filename:
+                swatch_url = f"/static/swatches/{swatch_filename}"
+            else:
+                print(f"Swatch image not found for {ref_code}")
+                # Provide a placeholder
+                swatch_url = f"https://placehold.co/400x400/eeeeee/cccccc?text={ref_code.replace('-', '%0A')}&font=inter"
+            
+            # Get all mockups for this ref
+            mockups = get_mockups_for_ref(ref_code)
+            
+            results.append({
+                "ref": ref_code,
+                "style": style,
+                "swatchUrl": swatch_url,
+                "availableMockups": mockups
+            })
 
-    # 3. Get All Mockups (Men, Women, Kids)
-    available_mockups = find_all_mockups_by_ref(ref_code)
-
-    # 4. Return ONE response
-    return jsonify({
-        "refNo": ref_code,
-        "style": fabrication,
-        "imageUrl": swatch_url,
-        "excelFound": excel_found,
-        "availableMockups": available_mockups
-    })
-
+    return jsonify(results)
 
 # --- Static File Routes (Unchanged) ---
 @app.route('/static/mockups/<filename>')
@@ -222,7 +204,6 @@ def serve_techpack(filename):
 def serve_swatch(filename):
     """Serves files from your 'fabric_swatches' folder."""
     return send_from_directory(FABRIC_SWATCH_DIR, filename)
-
 
 # --- Run the Server ---
 if __name__ == '__main__':
