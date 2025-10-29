@@ -49,7 +49,10 @@ class MockupGenerator:
     def _generate_core(self, fabric_ref, mockup_name, scaling_factor=1.0):
         """
         Private core function to generate the image.
-        This version scales the fabric, then tiles it to fill the mockup.
+        NEW LOGIC (Fit, Scale, and Center):
+        1. Scales fabric proportionally to "fit" the mockup (like CSS 'contain').
+        2. Applies scaling_factor to this "fit" size to allow zooming.
+        3. Pastes the (potentially zoomed) fabric, centered, onto the mockup.
         """
         print(f"Starting mockup for Fabric: '{fabric_ref}', Mockup: '{mockup_name}'")
         common_exts = ['.jpg', '.png', '.jpeg', '.webp']
@@ -61,24 +64,15 @@ class MockupGenerator:
                 print(f"Error: Fabric file not found for ref: {fabric_ref}", file=sys.stderr)
                 return None
             fabric_img = Image.open(fabric_path).convert("RGBA")
+            fabric_width, fabric_height = fabric_img.size
 
-            # --- *** 1. Apply Scaling Factor *** ---
-            if scaling_factor != 1.0 and scaling_factor > 0:
-                print(f"Applying scaling factor of {scaling_factor} to fabric.")
-                new_width = int(fabric_img.width * scaling_factor)
-                new_height = int(fabric_img.height * scaling_factor)
-                if new_width > 0 and new_height > 0:
-                    # Use LANCZOS for high-quality resizing (zooming)
-                    fabric_img = fabric_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                else:
-                    print(f"Warning: Invalid scaling factor {scaling_factor} resulted in zero dimension. Ignoring.")
-            
             # Find mockup
             mockup_path = self.find_file(self.mockup_dir, mockup_name, common_exts)
             if not mockup_path:
                 print(f"Error: Mockup file not found for name: {mockup_name}", file=sys.stderr)
                 return None
             mockup_img = Image.open(mockup_path).convert("RGBA")
+            mockup_width, mockup_height = mockup_img.size
 
             # Find and process mask
             mask_path = self.find_file(self.mask_dir, f"{mockup_name}_mask", ['.png', '.jpg', '.jpeg'])
@@ -98,27 +92,67 @@ class MockupGenerator:
             print(f"An error occurred opening files: {e}", file=sys.stderr)
             return None
 
-        # --- *** 2. Tile the Scaled Fabric *** ---
-        # This is the corrected logic. We tile the (now scaled) fabric.
-        # This works for "zoom out" (tiling a small image) and
-        # "zoom in" (tiling a huge image, which just pastes one tile).
-        print("Tiling/Cropping scaled fabric to mockup size...")
-        mockup_width, mockup_height = mockup_img.size
-        fabric_width, fabric_height = fabric_img.size # This is the *scaled* fabric size
+        # --- *** 1. Calculate "Fit" Dimensions (like 'contain') *** ---
+        # Get aspect ratios
+        # Handle potential zero division error
+        if mockup_height == 0 or fabric_height == 0:
+            print("Error: Mockup or fabric height is zero. Cannot calculate ratio.", file=sys.stderr)
+            return None
+            
+        mockup_ratio = mockup_width / mockup_height
+        fabric_ratio = fabric_width / fabric_height
 
+        if fabric_ratio > mockup_ratio:
+            # Fabric is wider than mockup, so scale based on width
+            fit_width = mockup_width
+            fit_height = int(fit_width / fabric_ratio)
+        else:
+            # Fabric is taller or same ratio, so scale based on height
+            fit_height = mockup_height
+            fit_width = int(fit_height * fabric_ratio)
+            
+        print(f"Mockup size: {mockup_width}x{mockup_height}")
+        print(f"Fabric 'fit' size (at scale 1.0): {fit_width}x{fit_height}")
+
+        # --- *** 2. Apply "Zoom" (Scaling Factor) *** ---
+        # A scale of 1.0 = "fit". > 1.0 = zoom in. < 1.0 = zoom out.
+        if scaling_factor <= 0:
+            print(f"Warning: Invalid scale {scaling_factor}. Defaulting to 1.0.")
+            scaling_factor = 1.0
+            
+        scaled_width = int(fit_width * scaling_factor)
+        scaled_height = int(fit_height * scaling_factor)
+        print(f"Final scaled size (with zoom): {scaled_width}x{scaled_height}")
+
+        # --- *** 3. Resize Fabric *** ---
+        # Use LANCZOS for high-quality resizing
+        if scaled_width > 0 and scaled_height > 0:
+            resized_fabric_img = fabric_img.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
+        else:
+            print(f"Error: Final scaled size is invalid ({scaled_width}x{scaled_height}). Aborting.", file=sys.stderr)
+            return None
+
+        # --- *** 4. Create Fabric Layer and Paste Centered *** ---
+        # Create a new transparent layer matching the mockup size
         fabric_layer = Image.new("RGBA", (mockup_width, mockup_height))
+        
+        # Calculate top-left coordinates to center the fabric
+        paste_x = (mockup_width - scaled_width) // 2
+        paste_y = (mockup_height - scaled_height) // 2
+        print(f"Pasting fabric at ({paste_x}, {paste_y})")
 
-        for x in range(0, mockup_width, fabric_width):
-            for y in range(0, mockup_height, fabric_height):
-                fabric_layer.paste(fabric_img, (x, y))
-        # --- *** END OF MODIFICATION *** ---
+        # Paste the resized fabric onto the transparent layer
+        # The 'paste' function correctly handles negative coordinates (cropping)
+        fabric_layer.paste(resized_fabric_img, (paste_x, paste_y))
 
-        # --- 3. Validate and Resize Mask (if needed) ---
+        # --- 5. Validate and Resize Mask (if needed) ---
         if mockup_img.size != mask_img.size:
             print(f"Warning: Mockup and Mask sizes differ. Resizing mask to fit mockup.", file=sys.stderr)
             mask_img = mask_img.resize(mockup_img.size, Image.Resampling.LANCZOS)
 
-        # --- 4. Composite ---
+        # --- 6. Composite ---
+        # This composites the centered fabric layer (fabric_layer)
+        # onto the mockup (mockup_img) using the mask (mask_img)
         final_img = Image.composite(fabric_layer, mockup_img, mask_img)
         
         return final_img
