@@ -1,24 +1,20 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- STATE ---
-    // This will store the data from the single API call
-    // It will be a LIST: [ {ref: "R1", ...}, {ref: "R2", ...} ]
     let allDataStore = [];
     let currentRef = null;
 
     // --- DOM ELEMENTS ---
     const searchForm = document.getElementById('search-form');
     const fabricInput = document.getElementById('fabric-ref');
-    const resultsWrapper = document.getElementById('results-wrapper');
     
-    // Left Column
+    // Results Sections (now stacked)
+    const fabricResultsSection = document.getElementById('fabric-results-section');
     const fabricListTitle = document.getElementById('fabric-list-title');
     const fabricCardList = document.getElementById('fabric-card-list');
     const fabricCardError = document.getElementById('fabric-card-error');
 
-    // Right Column
     const categorySelector = document.getElementById('category-selector');
-    const categoryButtonsContainer = categorySelector.querySelector('.category-buttons-container');
     const categoryButtons = categorySelector.querySelectorAll('.category-button');
     
     const mockupViewer = document.getElementById('mockup-viewer');
@@ -61,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // --- NEW: Render all fabric cards ---
+            // Render all fabric cards
             fabricListTitle.textContent = `${allDataStore.length} fabric(s) found for "${searchTerm}"`;
             renderFabricCards(allDataStore);
 
@@ -98,15 +94,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- FUNCTIONS ---
 
     function resetApp() {
-        resultsWrapper.style.display = 'grid';
+        fabricResultsSection.style.display = 'block';
         fabricListTitle.style.display = 'block';
         fabricCardList.innerHTML = ''; // Clear old fabric cards
         fabricCardError.style.display = 'none';
         
-        // Hide right column content
-        categorySelector.style.display = 'block'; // Show this
-        categorySelector.querySelector('h3').textContent = 'Select a fabric to see options';
-        categoryButtonsContainer.style.display = 'none'; // Hide buttons
+        // Hide bottom sections
+        categorySelector.style.display = 'none'; 
         mockupViewer.style.display = 'none';
         viewerContainer.style.display = 'none';
         
@@ -114,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRef = null;
     }
 
-    // NEW: Function to create and show all fabric cards
+    // Function to create and show all fabric cards
     function renderFabricCards(fabricDataList) {
         fabricCardList.innerHTML = ''; // Clear list
         
@@ -122,7 +116,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'fabric-card';
             
-            // As requested: Only show Style, not Ref
+            // Store ref on the card itself for selection highlighting
+            card.dataset.ref = fabricData.ref;
+            
             card.innerHTML = `
                 <div class="fabric-image-container">
                     <img class="fabric-card-image" src="${fabricData.swatchUrl}" alt="Fabric Swatch">
@@ -145,24 +141,34 @@ document.addEventListener('DOMContentLoaded', () => {
             garmentButton.style.display = 'flex';
             
             // Add click listener to *this* button
-            garmentButton.addEventListener('click', () => {
-                // Get the ref for this card
+            garmentButton.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent card click from firing
                 const ref = garmentButton.dataset.ref;
-                handleFabricCardClick(ref);
+                handleFabricCardClick(ref, card);
+            });
+            
+            // Add click listener to the *whole card* as well
+            card.addEventListener('click', () => {
+                const ref = card.dataset.ref;
+                handleFabricCardClick(ref, card);
             });
             
             fabricCardList.appendChild(card);
         });
     }
 
-    // NEW: Function to handle when a garment button is clicked
-    function handleFabricCardClick(ref) {
+    // Function to handle when a garment button/card is clicked
+    function handleFabricCardClick(ref, selectedCard) {
         currentRef = ref; // Set the global ref
         
-        // Reset the right column
+        // Highlight the selected card
+        document.querySelectorAll('.fabric-card').forEach(c => c.classList.remove('selected'));
+        selectedCard.classList.add('selected');
+        
+        // Show the category selector
         categorySelector.style.display = 'block';
-        categorySelector.querySelector('h3').textContent = 'Select a Category';
-        categoryButtonsContainer.style.display = 'flex';
+        
+        // Hide the mockup viewer parts
         mockupViewer.style.display = 'none';
         viewerContainer.style.display = 'none';
         
@@ -176,14 +182,23 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Hide category buttons if they have no mockups
+        // Show/Hide category buttons based on availability
+        let hasAnyMockups = false;
         for (let category of ['men', 'women', 'kids']) {
             const button = categorySelector.querySelector(`[data-category="${category}"]`);
             if (fabricData.availableMockups[category].length > 0) {
                 button.style.display = 'block';
+                hasAnyMockups = true;
             } else {
                 button.style.display = 'none';
             }
+        }
+        
+        // Show a message if no mockups at all are found
+        if (!hasAnyMockups) {
+             categorySelector.querySelector('h3').textContent = `No mockups found for this fabric.`;
+        } else {
+             categorySelector.querySelector('h3').textContent = 'Select a Category';
         }
     }
 
@@ -236,6 +251,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             downloadPdfLink.style.display = 'none';
         }
+        
+        // Scroll to the viewer
+        viewerContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
 });
