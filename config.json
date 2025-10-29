@@ -1,14 +1,11 @@
 {
   "paths": {
-    "fabric_dir": "fabrics",
-    "mockup_dir": "mockups",
-    "mask_dir": "masks",
+    "excel_dir": "excel_files",
+    "fabric_database_file": "fabric_database.xlsx", 
+    "fabric_swatch_dir": "fabric_swatches",
     "mockup_output_dir": "generated_mockups",
     "pdf_output_dir": "generated_techpacks",
-    "techpack_template_dir": "techpack_templates",
-
-    "excel_dir": "excel_files",
-    "fabric_swatch_dir": "fabric_swatches"
+    "techpack_template_dir": "techpack_templates"
   },
   "techpack_coords": {
     "total_template_width_px": 2480,
@@ -19,3 +16,4 @@
     "selection_height_px": 800
   }
 }
+
