@@ -1,97 +1,79 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- DOM Elements ---
+    // --- STATE ---
+    // This will store the data from the single API call
+    // It will be a LIST: [ {ref: "R1", ...}, {ref: "R2", ...} ]
+    let allDataStore = [];
+    let currentRef = null;
+
+    // --- DOM ELEMENTS ---
     const searchForm = document.getElementById('search-form');
     const fabricInput = document.getElementById('fabric-ref');
-    
-    // Main results wrapper
     const resultsWrapper = document.getElementById('results-wrapper');
-
-    // Fabric Card Elements
-    const fabricCard = document.getElementById('fabric-card');
-    const fabricCardImage = document.getElementById('fabric-card-image');
-    const fabricCardRef = document.getElementById('fabric-card-ref');
-    const fabricCardStyle = document.getElementById('fabric-card-style');
+    
+    // Left Column
+    const fabricListTitle = document.getElementById('fabric-list-title');
+    const fabricCardList = document.getElementById('fabric-card-list');
     const fabricCardError = document.getElementById('fabric-card-error');
-    const fabricCardButton = document.getElementById('fabric-card-button'); // NEW: The garment button
 
-    // Category Selector
+    // Right Column
     const categorySelector = document.getElementById('category-selector');
-    const categoryButtons = document.querySelectorAll('.category-button');
-
-    // Mockup Viewer
+    const categoryButtonsContainer = categorySelector.querySelector('.category-buttons-container');
+    const categoryButtons = categorySelector.querySelectorAll('.category-button');
+    
     const mockupViewer = document.getElementById('mockup-viewer');
-    const mockupButtonsContainer = document.getElementById('mockup-buttons');
-    const mockupViewerContainer = document.getElementById('viewer-container');
+    const mockupListTitle = document.getElementById('mockup-list-title');
+    const mockupLoading = document.getElementById('mockup-loading');
+    const mockupButtons = document.getElementById('mockup-buttons');
+    const mockupError = document.getElementById('mockup-error-message');
+    
+    const viewerContainer = document.getElementById('viewer-container');
     const viewerTitle = document.getElementById('viewer-title');
     const viewerImage = document.getElementById('viewer-image');
-    const downloadImageLink = document.getElementById('download-image');
     const downloadPdfLink = document.getElementById('download-pdf');
-    const mockupError = document.getElementById('mockup-error-message');
-    const mockupLoading = document.getElementById('mockup-loading');
+    const downloadImageLink = document.getElementById('download-image');
 
-    // --- State Variable ---
-    let allMockupsData = {};
+    // --- EVENT LISTENERS ---
 
-    // --- Main Search Event ---
+    // 1. Handle Search
     searchForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const refCode = fabricInput.value.trim();
-        if (!refCode) return;
+        const searchTerm = fabricInput.value.trim();
+        if (!searchTerm) return;
 
-        resetUI();
-        resultsWrapper.style.display = 'grid'; // Show the main wrapper
-        fabricCard.style.display = 'block'; // Show the card
-        fabricCardRef.textContent = refCode;
-        fabricCardStyle.textContent = 'Loading...';
+        resetApp(); // Reset the entire UI
+        fabricListTitle.textContent = "Searching...";
+        fabricListTitle.style.display = 'block';
 
         try {
-            // 1. --- ONE SINGLE FETCH ---
-            const response = await fetch(`./api/get-all-info?ref=${refCode}`);
+            const response = await fetch(`/api/find-fabrics?search=${searchTerm}`);
             if (!response.ok) {
-                throw new Error(`Server error: ${response.statusText}`);
+                const err = await response.json();
+                throw new Error(err.error || `Server error: ${response.statusText}`);
             }
-            const data = await response.json();
-
-            // 2. Store all mockup data globally
-            allMockupsData = data.availableMockups || {};
             
-            // 3. Populate Fabric Card
-            fabricCardImage.src = data.imageUrl;
-            fabricCardRef.textContent = data.refNo;
-            fabricCardStyle.textContent = data.style;
+            allDataStore = await response.json();
 
-            if (data.excelFound) {
-                fabricCardError.style.display = 'none';
-            } else {
-                fabricCardError.textContent = data.style; // Show error (e.g., "File not found")
+            if (allDataStore.length === 0) {
+                fabricListTitle.style.display = 'none';
+                fabricCardError.textContent = `No fabrics found for "${searchTerm}".`;
                 fabricCardError.style.display = 'block';
-                fabricCardStyle.style.display = 'none';
+                return;
             }
-            
-            // 4. NEW: Show the garment button
-            fabricCardButton.style.display = 'flex';
+
+            // --- NEW: Render all fabric cards ---
+            fabricListTitle.textContent = `${allDataStore.length} fabric(s) found for "${searchTerm}"`;
+            renderFabricCards(allDataStore);
 
         } catch (err) {
             console.error('Error fetching data:', err);
-            fabricCardStyle.style.display = 'none';
-            fabricCardError.textContent = 'Failed to connect to API server. Is it running?';
+            fabricListTitle.style.display = 'none';
+            fabricCardError.textContent = err.message || 'Failed to connect to API server.';
             fabricCardError.style.display = 'block';
         }
     });
 
-    // --- UI Click Events ---
-
-    // NEW: Click event for the garment button on the fabric card
-    fabricCardButton.addEventListener('click', () => {
-        categorySelector.style.display = 'block'; // Show the category selector
-        mockupViewer.style.display = 'none'; // Hide the mockup viewer (if visible)
-        
-        // De-select all category buttons
-        categoryButtons.forEach(btn => btn.classList.remove('active'));
-    });
-
-    // Handle Category Selection
+    // 2. Handle Category Selection
     categoryButtons.forEach(button => {
         button.addEventListener('click', () => {
             const category = button.dataset.category;
@@ -100,56 +82,149 @@ document.addEventListener('DOMContentLoaded', () => {
             categoryButtons.forEach(btn => btn.classList.remove('active'));
             // Select the clicked one
             button.classList.add('active');
+            
+            // Show the mockup viewer section
+            mockupViewer.style.display = 'flex';
+            
+            // Find the data for the *currently selected ref*
+            const fabricData = allDataStore.find(item => item.ref === currentRef);
+            if (!fabricData) return;
 
-            // Hide the category selector and show the mockup viewer IN ITS PLACE
-            categorySelector.style.display = 'none';
-            mockupViewer.style.display = 'grid'; // Use grid, as defined in CSS
-            
-            mockupLoading.style.display = 'none'; // Hide "Loading..."
-            mockupViewerContainer.style.display = 'none'; // Hide main image
-            
-            // Get the mockups from our *stored* data, not a new fetch
-            const mockups = allMockupsData[category] || [];
-            displayMockups(mockups, category);
+            // Populate the mockups for this category
+            populateMockupList(fabricData.availableMockups, category);
         });
     });
 
-    // --- Helper Functions ---
+    // --- FUNCTIONS ---
 
-    function displayMockups(mockups, categoryName) {
-        mockupButtonsContainer.innerHTML = ''; // Clear old buttons
+    function resetApp() {
+        resultsWrapper.style.display = 'grid';
+        fabricListTitle.style.display = 'block';
+        fabricCardList.innerHTML = ''; // Clear old fabric cards
+        fabricCardError.style.display = 'none';
         
-        if (mockups.length > 0) {
-            mockupError.style.display = 'none';
+        // Hide right column content
+        categorySelector.style.display = 'block'; // Show this
+        categorySelector.querySelector('h3').textContent = 'Select a fabric to see options';
+        categoryButtonsContainer.style.display = 'none'; // Hide buttons
+        mockupViewer.style.display = 'none';
+        viewerContainer.style.display = 'none';
+        
+        allDataStore = [];
+        currentRef = null;
+    }
+
+    // NEW: Function to create and show all fabric cards
+    function renderFabricCards(fabricDataList) {
+        fabricCardList.innerHTML = ''; // Clear list
+        
+        fabricDataList.forEach((fabricData) => {
+            const card = document.createElement('div');
+            card.className = 'fabric-card';
             
-            mockups.forEach(item => {
-                const button = document.createElement('button');
-                button.textContent = item.garmentName;
-                button.addEventListener('click', (e) => {
-                    showMockup(item);
-                    // Set active class on button
-                    document.querySelectorAll('#mockup-buttons button').forEach(btn => btn.classList.remove('active'));
-                    e.currentTarget.classList.add('active');
-                });
-                mockupButtonsContainer.appendChild(button);
+            // As requested: Only show Style, not Ref
+            card.innerHTML = `
+                <div class="fabric-image-container">
+                    <img class="fabric-card-image" src="${fabricData.swatchUrl}" alt="Fabric Swatch">
+                    <button class="fabric-card-button" data-ref="${fabricData.ref}" title="View Garments">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20.38 3.46L16 2a4 4 0 0 0-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47A1 1 0 0 0 4 10h16a1 1 0 0 0 .96-1.84l.58-3.47a2 2 0 0 0-1.34-2.23z"></path>
+                            <path d="M4 10v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10"></path>
+                            <path d="M12 10v12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="fabric-card-details">
+                    <p class="fabric-card-style">${fabricData.style}</p>
+                </div>
+            `;
+            
+            const garmentButton = card.querySelector('.fabric-card-button');
+            
+            // Show the garment button
+            garmentButton.style.display = 'flex';
+            
+            // Add click listener to *this* button
+            garmentButton.addEventListener('click', () => {
+                // Get the ref for this card
+                const ref = garmentButton.dataset.ref;
+                handleFabricCardClick(ref);
             });
+            
+            fabricCardList.appendChild(card);
+        });
+    }
 
-            // Auto-click the first button
-            if (mockupButtonsContainer.firstChild) {
-                mockupButtonsContainer.firstChild.click();
+    // NEW: Function to handle when a garment button is clicked
+    function handleFabricCardClick(ref) {
+        currentRef = ref; // Set the global ref
+        
+        // Reset the right column
+        categorySelector.style.display = 'block';
+        categorySelector.querySelector('h3').textContent = 'Select a Category';
+        categoryButtonsContainer.style.display = 'flex';
+        mockupViewer.style.display = 'none';
+        viewerContainer.style.display = 'none';
+        
+        // Reset category buttons
+        categoryButtons.forEach(btn => btn.classList.remove('active'));
+        
+        // Find the data for this ref
+        const fabricData = allDataStore.find(item => item.ref === ref);
+        if (!fabricData) {
+            console.error("Could not find data for ref:", ref);
+            return;
+        }
+
+        // Hide category buttons if they have no mockups
+        for (let category of ['men', 'women', 'kids']) {
+            const button = categorySelector.querySelector(`[data-category="${category}"]`);
+            if (fabricData.availableMockups[category].length > 0) {
+                button.style.display = 'block';
+            } else {
+                button.style.display = 'none';
             }
-
-        } else {
-            // No mockups found for this category
-            mockupViewerContainer.style.display = 'none';
-            mockupError.textContent = `No ${categoryName} mockups found for this ref code.`;
-            mockupError.style.display = 'block';
         }
     }
 
+    // This function populates the horizontal mockup list
+    function populateMockupList(availableMockups, category) {
+        mockupButtons.innerHTML = ''; // Clear old buttons
+        mockupError.style.display = 'none';
+        mockupLoading.style.display = 'none';
+        viewerContainer.style.display = 'none'; // Hide old image
+
+        const mockups = availableMockups[category];
+
+        if (mockups.length === 0) {
+            mockupError.textContent = `No ${category} mockups found for this fabric.`;
+            mockupError.style.display = 'block';
+            return;
+        }
+
+        mockups.forEach(item => {
+            const button = document.createElement('button');
+            button.textContent = item.garmentName;
+            
+            button.addEventListener('click', (e) => {
+                showMockup(item);
+                // Highlight this button
+                document.querySelectorAll('#mockup-buttons button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                e.currentTarget.classList.add('active');
+            });
+            
+            mockupButtons.appendChild(button);
+        });
+    }
+
+    // This function shows the final image
     function showMockup(item) {
-        mockupViewerContainer.style.display = 'block';
+        viewerContainer.style.display = 'block';
         viewerTitle.textContent = item.garmentName;
+        
+        // Build the full URLs (now relative)
         viewerImage.src = item.mockupUrl;
         downloadImageLink.href = item.mockupUrl;
         downloadImageLink.download = item.mockupUrl.split('/').pop();
@@ -163,25 +238,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function resetUI() {
-        resultsWrapper.style.display = 'none'; // Hide the whole results area
-        fabricCard.style.display = 'none'; // Hide card
-        
-        // Clear placeholder text
-        fabricCardRef.textContent = '';
-        fabricCardStyle.textContent = '';
-        fabricCardError.textContent = '';
-        
-        fabricCardStyle.style.display = 'inline';
-        fabricCardError.style.display = 'none';
-        fabricCardButton.style.display = 'none'; // Hide garment button
-        
-        categorySelector.style.display = 'none'; // Hide category selector
-        mockupViewer.style.display = 'none'; // Hide mockup viewer
-        
-        categoryButtons.forEach(btn => btn.classList.remove('active'));
-        
-        allMockupsData = {}; // Clear stored data
-    }
 });
 
