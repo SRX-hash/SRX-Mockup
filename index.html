@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale-1.0">
     <title>Masco Mockup Library</title>
     
-    <!-- Load modern "Inter" font --><link rel="preconnect" href="httpss://fonts.googleapis.com">
-    <link rel="preconnect" href="httpss://fonts.gstatic.com" crossorigin>
-    <link href="httpss://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Load modern "Inter" font --><link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
         :root {
@@ -90,36 +90,56 @@
             padding: 0 10px;
         }
 
-        /* --- Results Wrapper (Side-by-Side) --- */
-        #results-wrapper {
-            max-width: 1400px;
-            margin: 0 auto 30px auto;
-            display: grid;
-            grid-template-columns: 400px 1fr; /* 400px fixed left, remaining space right */
-            gap: 25px;
-            align-items: start; /* Align tops of cards */
+        /* --- NEW: Fabric Results Section --- */
+        #fabric-results-section {
+            display: none; /* Hidden until search */
+            width: 100%;
         }
         
-        /* --- NEW: Left Column Container --- */
-        #left-column {
+        #fabric-list-title {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        
+        #fabric-card-list {
             display: flex;
-            flex-direction: column;
+            flex-wrap: wrap; /* Allows cards to wrap to the next line */
             gap: 20px; /* Space between fabric cards */
+            justify-content: center; /* Center the cards horizontally */
+        }
+        
+        #fabric-card-error {
+            color: var(--error-red);
+            font-weight: 500;
+            font-size: 1.2em;
+            text-align: center;
         }
 
         /* --- FABRIC CARD (CLASS, not ID) --- */
-        /* This style applies to *each* card */
         .fabric-card {
-            background: #fff;
+            width: 350px; /* Give cards a fixed width */
+            background: transparent;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             overflow: hidden;
             position: relative;
+            transition: all 0.2s ease-in-out;
         }
+        
+        /* Highlight the selected card */
+        .fabric-card.selected {
+             box-shadow: 0 0 0 3px var(--masco-blue), 0 4px 12px rgba(0,0,0,0.1);
+             transform: translateY(-2px);
+        }
+        
         .fabric-image-container {
             position: relative;
             background-color: #f9f9f9;
-            height: 400px; /* Fixed height for image container */
+            height: 200px; /* Smaller image height */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -127,70 +147,50 @@
         .fabric-card-image {
             max-width: 100%;
             max-height: 100%;
-            object-fit: contain; /* Contain image within its area */
+            object-fit: contain; 
             display: block;
         }
         .fabric-card-button {
-            display: none; /* Will be shown by JS */
+            display: none; 
             position: absolute;
             bottom: 15px;
-            right: 15px;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
+            right: 60px; /* Moved left */
+            width: 40px;
+            height: 40px;
+            border-radius: 10%;
             background-color: var(--masco-blue);
             color: white;
             border: none;
             cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             transition: all 0.2s ease;
             padding: 0;
             z-index: 10;
-            /* For the SVG icon */
             display: flex;
             align-items: center;
             justify-content: center;
         }
         .fabric-card-button svg {
-            width: 24px;
-            height: 24px;
+            width: 10px;
+            height: 10px;
         }
         .fabric-card-button:hover {
-            background-color: #003399;
+            background-color: #172031;
             transform: scale(1.1);
         }
         .fabric-card-details {
-            padding: 20px;
-        }
-        .fabric-card-ref {
-            /* This is hidden, but can be used for debugging */
-            display: none; 
-            font-size: 0.8em;
-            color: var(--text-secondary);
+            padding: 10px;
         }
         .fabric-card-style {
-            font-size: 1.1em; /* Made style larger as it's the main text */
+            font-size: 0.9em; 
             font-weight: 600;
             color: var(--text-primary);
             margin: 0;
             line-height: 1.4;
-            min-height: 1.4em; /* Prevent layout shift */
-        }
-        .fabric-card-error {
-            display: none;
-            color: var(--error-red);
-            font-weight: 500;
+            min-height: 1.4em;
         }
 
-        /* --- Right Column --- */
-        #right-column {
-            display: block;
-            position: sticky; /* Stick the right column while scrolling left */
-            top: 20px;
-            min-height: 400px; 
-        }
-
-        /* --- CATEGORY SELECTOR (In Right Column) --- */
+        /* --- CATEGORY SELECTOR (Full Width) --- */
         #category-selector {
             display: none; /* Hidden initially */
             background: #fff;
@@ -198,6 +198,8 @@
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             text-align: center;
+            max-width: 1200px;
+            margin: 30px auto 0 auto; /* Appears below cards */
         }
         #category-selector h3 {
             margin: 0 0 15px 0;
@@ -206,7 +208,7 @@
         }
         .category-buttons-container {
             display: flex;
-            flex-wrap: wrap; /* Allow buttons to wrap */
+            flex-wrap: wrap; 
             justify-content: center;
             gap: 15px;
         }
@@ -229,11 +231,13 @@
             border-color: var(--masco-blue);
         }
 
-        /* --- MOCKUP VIEWER (In Right Column) --- */
+        /* --- MOCKUP VIEWER (Full Width) --- */
         #mockup-viewer {
             display: none; /* Hidden until category selected */
+            max-width: 1200px; /* Wider */
+            margin: 30px auto 0 auto; /* Appears below category selector */
             display: flex;
-            flex-direction: column; /* Stack buttons on top of viewer */
+            flex-direction: column; 
             gap: 25px;
         }
 
@@ -283,7 +287,7 @@
         }
 
         #mockup-error-message, #mockup-loading {
-            display: none; /* Hide loading message by default */
+            display: none;
             color: var(--error-red);
             font-weight: 500;
         }
@@ -299,9 +303,9 @@
 
         #viewer-image {
             width: 100%;
-            height: 400px; /* Matches fabric card image */
-            max-width: 100%;
-            object-fit: contain; /* Contain image within its area */
+            height: 300px; /* Taller viewer image */
+            max-width: 50%;
+            object-fit: contain; 
             border: 1px solid var(--border-color);
             border-radius: 8px;
             background-color: #f9f9f9;
@@ -309,8 +313,8 @@
         
         .download-links {
             margin-top: 20px;
-            display: flex; /* Use flex to align buttons */
-            gap: 10px; /* Space between buttons */
+            display: flex;
+            gap: 10px;
         }
         .download-links a {
             display: inline-block;
@@ -337,13 +341,10 @@
         }
 
         /* --- Responsive Adjustments --- */
-        @media (max-width: 900px) { /* Widen breakpoint for side-by-side */
-            #results-wrapper {
-                grid-template-columns: 1fr; /* Stack on smaller screens */
-            }
-            #right-column {
-                min-height: auto; /* Reset min-height */
-                position: static; /* Un-stick on mobile */
+        @media (max-width: 900px) { 
+            /* Stack fabric cards on mobile */
+            .fabric-card {
+                width: 100%;
             }
         }
     </style>
@@ -352,71 +353,66 @@
 
     <header class="header">
         <img src="Masco-Logo.png" alt="Masco Group Logo">
-        <h1>MASCO Central R&D Mockup Library</h1>
+        <h1>Digital Mockup Library</h1>
     </header>
 
     <main class="main-content-area">
         <!-- This is the centered search box -->
         <div id="search-container">
             <form id="search-form">
-                <input type="text" id="fabric-ref" placeholder="Enter Fabrication (e.g: Lacoste)...">
+                <input type.text" id="fabric-ref" placeholder="Search by Fabrication or Ref Code...">
                 <button type="submit">Search</button>
             </form>
         </div>
 
-        <!-- This wrapper holds the side-by-side results -->
-        <div id="results-wrapper" style="display: none;">
+        <!-- This wrapper holds ALL results -->
+        <div id="fabric-results-section" style="display: none;">
+            
+            <!-- Title for the results -->
+            <h3 id="fabric-list-title">Search Results</h3>
 
-            <!-- Column 1: Fabric Card List -->
-            <!-- NEW: This is now a container for the cards -->
-            <div id="left-column">
-                <h3 id="fabric-list-title" style="display: none;">Search Results</h3>
-                <div id="fabric-card-list">
-                    <!-- Fabric cards will be dynamically added here -->
+            <!-- 1. Horizontal list of fabric cards -->
+            <div id="fabric-card-list">
+                <!-- Fabric cards will be dynamically added here -->
+            </div>
+            <p id="fabric-card-error"></p>
+            
+            <!-- 2. Category Selector (appears below) -->
+            <div id="category-selector">
+                <h3>Select a Category</h3>
+                <div class="category-buttons-container">
+                    <button class="category-button" data-category="men">Men</button>
+                    <button class="category-button" data-category="women">Women</button>
+                    <button class="category-button" data-category="kids">Kids</button>
                 </div>
-                <p id="fabric-card-error"></p>
             </div>
 
-            <!-- Column 2: This column holds either the category selector or the mockup viewer -->
-            <div id="right-column">
+            <!-- 3. Mockup Viewer (appears below) -->
+            <div id="mockup-viewer">
                 
-                <!-- Category Selector (Appears first) -->
-                <div id="category-selector">
-                    <h3>Select a Fabric Card to see options</h3>
-                    <div class="category-buttons-container" style="display: none;">
-                        <button class="category-button" data-category="men">Men</button>
-                        <button class="category-button" data-category="women">Women</button>
-                        <button class="category-button" data-category="kids">Kids</button>
+                <!-- Horizontal list of mockup buttons -->
+                <div class.sidebar-card">
+                    <h3 id="mockup-list-title">Available Mockups</h3>
+                    <div id="mockup-loading">Loading...</div>
+                    <div id="mockup-buttons">
+                        <!-- Garment buttons will be added here by JavaScript -->
                     </div>
+                    <p id="mockup-error-message"></p>
                 </div>
 
-                <!-- Mockup Viewer (Appears after category selection) -->
-                <div id="mockup-viewer">
+                <!-- Main Image Area -->
+                <div class="viewer-card" id="viewer-container">
+                    <h2 id="viewer-title"></h2>
+                    <img id="viewer-image" alt="Selected Mockup">
                     
-                    <!-- Sidebar -->
-                    <div class="sidebar-card">
-                        <h3 id="mockup-list-title">Available Mockups</h3>
-                        <div id="mockup-loading">Loading...</div>
-                        <div id="mockup-buttons">
-                            <!-- Garment buttons will be added here by JavaScript -->
-                        </div>
-                        <p id="mockup-error-message"></p>
-                    </div>
-
-                    <!-- Main Image Area -->
-                    <div class="viewer-card" id="viewer-container">
-                        <h2 id="viewer-title"></h2>
-                        <img id="viewer-image" alt="Selected Mockup">
-                        
-                        <div class="download-links">
-                            <a id="download-pdf" href="#" download>Download Techpack PDF</a>
-                            <a id="download-image" href="#" download>Download Image</a>
-                        </div>
+                    <div class="download-links">
+                        <a id="download-pdf" href="#" download>Download Techpack PDF</a>
+                        <a id="download-image" href="#" download>Download Image</a>
                     </div>
                 </div>
-            </div> <!-- End Right Column -->
+            </div> <!-- End Mockup Viewer -->
 
-        </div> <!-- End Results Wrapper -->
+        </div> <!-- End Fabric Results Section -->
 
     </main>
 
